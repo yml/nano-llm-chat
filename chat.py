@@ -1,12 +1,20 @@
 import json
-
+import logging
+import sys
 from datetime import datetime
 from typing import List
+
 from django.db import models
 from django.http import StreamingHttpResponse
-from mirascope import llm, Messages
+from mirascope import Messages, llm
 from nanodjango import Django
-from asgiref.sync import sync_to_async
+
+# Set up logging for async diagnostics
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stdout,
+)
 
 app = Django(
     ADMIN_URL="wall-garden/",
@@ -18,7 +26,7 @@ app = Django(
 
 @llm.call(provider="openai", model="gpt-3.5-turbo", stream=True)
 async def respond_to_user(user_message: str) -> Messages.Type:
-    return await sync_to_async(Messages.User)(user_message)
+    return Messages.User(user_message)
 
 
 @app.admin
@@ -73,8 +81,9 @@ def get_messages(request):
 @app.api.post("/messages")
 async def create_message(request, message: app.ninja.Form[MessageIn]):
     async def stream_messages():
-        user_message = Message(role="user", content=message.content)
-        await user_message.asave()
+        user_message = await Message.objects.acreate(
+            role="user", content=message.content
+        )
         yield (
             json.dumps([
                 json.loads(
@@ -86,16 +95,16 @@ async def create_message(request, message: app.ninja.Form[MessageIn]):
                     ).model_dump_json()
                 )
             ])
-            + "<==Split==>"
         )
 
-        bot_response = None
+        bot_response = ""
         stream = await respond_to_user(user_message.content)
         async for chunk, _ in stream:
-            if bot_response is None and chunk.content:
+            if not bot_response and chunk.content:
                 bot_response = chunk.content
-                bot_message = Message(role="bot", content=chunk.content)
-                await bot_message.asave()
+                bot_message = await Message.objects.acreate(
+                    role="bot", content=chunk.content
+                )
 
             elif chunk.content:
                 bot_response += chunk.content
@@ -110,9 +119,8 @@ async def create_message(request, message: app.ninja.Form[MessageIn]):
                             ).model_dump_json()
                         )
                     ])
-                    + "<==Split==>"
                 )
-
+            yield "<==Split==>"
         bot_message.content = bot_response
         await bot_message.asave()
 
