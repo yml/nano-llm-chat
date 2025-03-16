@@ -4,7 +4,6 @@ import sys
 from datetime import datetime
 from typing import List
 
-from openai import OpenAI, AsyncOpenAI
 from django.db import models
 from django.http import StreamingHttpResponse
 from mirascope import Messages, llm
@@ -73,21 +72,16 @@ class Message(models.Model):
         return f"{self.role}: {self.content}"
 
 
-async def respond_to_user_with_default_model():
+async def respond_to_user_with_active():
     default_model: AIModel = await AIModel.objects.filter(is_active=True).afirst()
-    if default_model.provider == AIModel.Providers.OLLAMA and default_model.base_url and default_model.stream:
-        custom_client = AsyncOpenAI(
-            base_url=default_model.base_url,
-            api_key="FAKE_KEY",  # Not used by ollama but required
-        )
-    else:
-        custom_client = None
+
+    if not default_model:
+        raise ValueError("No active AIModel found")
 
     @llm.call(
         provider=default_model.provider,
         model=default_model.model,
         stream=default_model.stream,
-        client=custom_client,
     )
     async def respond_to_user(user_message: str) -> Messages.Type:
         return Messages.User(user_message)
@@ -135,7 +129,7 @@ async def create_message(request, message: app.ninja.Form[MessageIn]):
         )
 
         bot_response = ""
-        respond_to_user = await respond_to_user_with_default_model()
+        respond_to_user = await respond_to_user_with_active()
         stream = await respond_to_user(user_message.content)
         async for chunk, _ in stream:
             if not bot_response and chunk.content:
