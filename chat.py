@@ -104,12 +104,12 @@ async def index(request):
     return app.render(request, "chat.html", {"title": "Home"})
 
 
-@app.api.get("/messages", response=List[MessageOut])
+@app.api.get("/messages", response=List[MessageOut], url_name="messages")
 def get_messages(request):
     return Message.objects.all()
 
 
-@app.api.post("/messages")
+@app.api.post("/messages", url_name="create_message")
 async def create_message(request, message: app.ninja.Form[MessageIn]):
     async def stream_messages():
         user_message = await Message.objects.acreate(
