@@ -134,12 +134,14 @@ async def create_message(request, message: app.ninja.Form[MessageIn]):
         async for chunk, _ in stream:
             if not bot_response and chunk.content:
                 bot_response = chunk.content
-                bot_message = await Message.objects.acreate(
+                bot_message: Message = await Message.objects.acreate(
                     role="bot", content=chunk.content
                 )
 
             elif chunk.content:
                 bot_response += chunk.content
+            if hasattr(bot_message, "id") and bot_response:
+                yield "<==Split==>"
                 yield (
                     json.dumps([
                         json.loads(
@@ -152,7 +154,6 @@ async def create_message(request, message: app.ninja.Form[MessageIn]):
                         )
                     ])
                 )
-            yield "<==Split==>"
         bot_message.content = bot_response
         await bot_message.asave()
 
