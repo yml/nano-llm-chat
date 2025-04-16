@@ -1,16 +1,13 @@
-// WARNING: to avoid the complexity of npm, this typescript is compiled in the browser
-// there's currently no static type checking
-
 // import { marked } from "https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.0/lib/marked.esm.js";
 import { marked } from "./marked.esm.js";
 const convElement = document.getElementById("conversation");
 
-const promptInput = document.getElementById("prompt-input") as HTMLInputElement;
+const promptInput = document.getElementById("prompt-input");
 const spinner = document.getElementById("spinner");
 
 // stream the response and render messages as each chunk is received
 // data is sent as newline-delimited JSON
-async function onFetchResponse(response: Response): Promise<void> {
+async function onFetchResponse(response) {
   let text = "";
   let decoder = new TextDecoder();
   if (response.ok) {
@@ -37,34 +34,21 @@ async function onFetchResponse(response: Response): Promise<void> {
   }
 }
 
-// The format of messages, this matches pydantic-ai both for brevity and understanding
-// in production, you might not want to keep this format all the way to the frontend
-interface Message {
-  id: BigInteger;
-  role: string;
-  content: string;
-  created_at: string;
-}
-
 // take raw response text and render messages into the `#conversation` element
 // Message created_at is assumed to be a unique identifier of a message, and is used to deduplicate
-// hence you can send data about the same message multiple times, and it will be updated
-// instead of creating a new message elements
-function addMessages(responseText: string) {
+function addMessages(responseText) {
   const lines = responseText.split("<==Split==>");
-  const messagesMap = new Map<BigInteger, Message>();
+  const messagesMap = new Map();
   lines
     .filter((line) => line.length > 1)
     .forEach((line) => {
-      const parsed = JSON.parse(line) as Message[];
+      const parsed = JSON.parse(line);
       parsed.forEach((msg) => {
         messagesMap.set(msg.id, msg);
       });
     });
   const messages = Array.from(messagesMap.values());
-  //const messages: Message[] = JSON.parse(responseText);
   for (const message of messages) {
-    // we use the created_at as a crude element id
     const { id, created_at, role, content } = message;
     const $id = `msg-${id}`;
     let msgDiv = document.getElementById($id);
@@ -80,16 +64,16 @@ function addMessages(responseText: string) {
   window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
 }
 
-function onError(error: any) {
+function onError(error) {
   console.error(error);
   document.getElementById("error").classList.remove("d-none");
   document.getElementById("spinner").classList.remove("active");
 }
 
-async function onSubmit(e: SubmitEvent): Promise<void> {
+async function onSubmit(e) {
   e.preventDefault();
   spinner.classList.add("active");
-  const body = new FormData(e.target as HTMLFormElement);
+  const body = new FormData(e.target);
 
   promptInput.value = "";
   promptInput.disabled = true;
@@ -97,10 +81,12 @@ async function onSubmit(e: SubmitEvent): Promise<void> {
   await onFetchResponse(response);
 }
 
-// call onSubmit when the form is submitted (e.g. user clicks the send button or hits Enter)
-document
-  .querySelector("form")
-  .addEventListener("submit", (e) => onSubmit(e).catch(onError));
+document.addEventListener("DOMContentLoaded", function () {
+  // call onSubmit when the form is submitted (e.g. user clicks the send button or hits Enter)
+  document
+    .querySelector("form")
+    .addEventListener("submit", (e) => onSubmit(e).catch(onError));
 
-// load messages on page load
-fetch("/api/messages").then(onFetchResponse).catch(onError);
+  // load messages on page load
+  fetch("/api/messages").then(onFetchResponse).catch(onError);
+});
