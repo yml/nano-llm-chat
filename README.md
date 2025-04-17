@@ -2,6 +2,7 @@
 
 This project is an adaptation of the [pydantic-ai chat example](https://ai.pydantic.dev/examples/chat-app/#running-the-example) where I replaced pydantic-ai with mirascope and fastAPI with Nanodjango.
 
+`uv` is the package manager and the main dependencies for this project are uv, nanodjango, mirascope.
 
 
 ## Start the app
@@ -16,3 +17,24 @@ Start the chat app.
 uv run nanodjango run chat.py 
 ```
 
+open http://localhost:8000 in your browser to access the chat interface.
+
+
+## Django Admin
+
+
+[Create an instance](http://localhost:8000/wall-garden/chat/aimodel/) of an `AI model`.
+
+Example:
+
+* provider: OpenAI
+* model: gpt-3.5-turbo
+* stream: True
+* Is Active: True
+
+
+## Run the test suite
+
+```
+uv run pytest
+```
