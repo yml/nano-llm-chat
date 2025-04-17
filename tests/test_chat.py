@@ -1,10 +1,9 @@
-from calendar import c
 import json
 from unittest.mock import Mock
 
 import pytest
 
-from django.urls import reverse, resolve
+from django.urls import reverse
 from mirascope.llm.call_response_chunk import CallResponseChunk
 
 from chat import AIModel, Message
